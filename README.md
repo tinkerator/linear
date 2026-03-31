@@ -18,7 +18,7 @@ zappem.net/pub/math/linear](https://pkg.go.dev/zappem.net/pub/math/linear).
 
 ## License info
 
-The `polygon` package is distributed with the same BSD 3-clause
+The `linear` package is distributed with the same BSD 3-clause
 license as that used by [golang](https://golang.org/LICENSE) itself.
 
 ## Reporting bugs
