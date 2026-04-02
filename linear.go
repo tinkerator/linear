@@ -174,6 +174,20 @@ type Point struct {
 	X, Y float64
 }
 
+// Binomial returns the binomial coefficient of n choose k.
+func Binomial(n, k int) float64 {
+	// compute n!/(k!(n-k)!).
+	num := 1.0
+	den := 1.0
+	for i := n; i > k; i-- {
+		num *= float64(i)
+	}
+	for i := n - k; i > 1; i-- {
+		den *= float64(i)
+	}
+	return num / den
+}
+
 // FitPoly takes a series of xy points and derives close fit
 // coefficients for a polynomial up to x^n. The function errors out if
 // the number of points supplied is less than n+1.
@@ -181,27 +195,24 @@ func FitPoly(n int, xy []Point) (Coefs, error) {
 	if n+1 > len(xy) {
 		return nil, ErrInsufficientPoints
 	}
-	var norm float64
+	var minX float64
 	for _, coord := range xy {
-		if x := math.Abs(coord.X); norm < x {
-			norm = x
+		if minX > coord.X {
+			minX = coord.X
 		}
 	}
-	if norm == 0.0 {
-		return make([]float64, n+1), nil
-	}
-
-	xnormal := .5 / norm
+	minX -= 1.0
 	d := make([]float64, 2*n+2)
 	e := make([]float64, n+1)
-	value := 1.0
+	norm := 1.0 / float64(len(xy))
 	for _, coord := range xy {
+		value := norm
 		for i := 0; i <= 2*n; i++ {
 			if i <= n {
 				e[i] += coord.Y * value
 			}
 			d[i] += value
-			value *= xnormal * coord.X
+			value *= coord.X - minX
 		}
 	}
 	var a Matrix
@@ -219,11 +230,17 @@ func FitPoly(n int, xy []Point) (Coefs, error) {
 		return nil, err
 	}
 	soln := recip.XM(b)
-	var coefs Coefs
-	xf := 1.0
-	for _, v := range soln {
-		coefs = append(coefs, v[0]*xf)
-		xf *= xnormal
+	// This solution is for coefficients of powers of (x-minX).
+	// So, we need to expand and regroup the terms to find the
+	// actual coefficients of x.
+	coefs := make(Coefs, n+1)
+	for i, v := range soln {
+		coefs[i] = v[0]
+		term := -minX
+		for j := 1; j <= i; j++ {
+			coefs[i-j] += v[0] * Binomial(i, j) * term
+			term *= -minX
+		}
 	}
 	return coefs, nil
 }

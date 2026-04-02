@@ -31,7 +31,6 @@ func TestMXM(t *testing.T) {
 		if !b.Same(v.ans) {
 			t.Errorf("%d: got=%v, want=%v", i, b, v.ans)
 		}
-		t.Logf("%d: b =\n%v", i, b)
 		if v.sna == nil {
 			continue
 		}
@@ -39,7 +38,6 @@ func TestMXM(t *testing.T) {
 		if !c.Same(v.sna) {
 			t.Errorf("%d: got=%v, want=%v", i, c, v.sna)
 		}
-		t.Logf("%d: c =\n%v", i, c)
 	}
 }
 
@@ -58,6 +56,41 @@ func TestInv(t *testing.T) {
 	}
 	if !inv.Same(recip) {
 		t.Errorf("bad inverse =\n%v", inv)
+	}
+}
+
+func TestBinomial(t *testing.T) {
+	vs := []struct {
+		n, i int
+		want float64
+	}{
+		{n: 1, i: 0, want: 1},
+		{n: 2, i: 1, want: 2},
+		{n: 4, i: 1, want: 4},
+	}
+	for i, v := range vs {
+		got := Binomial(v.n, v.i)
+		if math.Abs(got-v.want) > Zeroish {
+			t.Errorf("%d: binomial(%d,%d) got=%f want=%f", i, v.n, v.i, v.want, got)
+		}
+	}
+}
+
+func TestFitSmall(t *testing.T) {
+	xy := []Point{
+		{-32, -5.5},
+		{0, -3.2},
+		{32, -5},
+	}
+	fit, err := FitPoly(2, xy)
+	if err != nil {
+		t.Fatalf("unable to fit xy=%v: %v", xy, err)
+	}
+	for i, coord := range xy {
+		got := fit.Expand(coord.X)
+		if math.Abs(got-coord.Y) > Zeroish {
+			t.Errorf("%d: got=%f want %f", i, got, coord.Y)
+		}
 	}
 }
 
@@ -92,7 +125,6 @@ func TestFitPoly(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("fit = %v", fit)
 	for i, coord := range xy {
 		y := fit.Expand(coord.X)
 		if math.Abs(y-coord.Y) > 0.01 {
