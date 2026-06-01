@@ -255,3 +255,104 @@ func (cs Coefs) Expand(x float64) float64 {
 	}
 	return y
 }
+
+// Affine is the parameter set for a 2D affine transformation.  The
+// first four parameters capture a scaled rotation matrix and the last
+// two the linear offset of an input Point. An (Affine).Apply(x,y)
+// computes (x',y') as follows:
+//
+//	[x'] = [Axx Axy] [x] + [Dx]
+//	[y'] = [Ayx Ayy] [y]   [Dy]
+//
+// This could use Matrix and Point sub-structures, but it is intended
+// to be more generally applicable, so we represent it with a more
+// neutral type and the Apply function has float64 arguments and
+// return values for this reason.
+type Affine struct {
+	Axx, Axy, Ayx, Ayy, Dx, Dy float64
+}
+
+// DeriveAffine consumes two point slices where u is believed to map
+// to v via some affine transformation, and returns a least squares
+// fit for that transformation.
+func DeriveAffine(u, v []Point) (aff Affine, err error) {
+	if len(u) != len(v) || len(u) < 3 || len(v) < 3 {
+		err = ErrNoInverse
+		return
+	}
+	A := make([]float64, 6)
+	B := make([]float64, 6)
+	for i, uI := range u {
+		vI := v[i]
+		A[0] += uI.X * uI.X
+		A[1] += uI.X * uI.Y
+		A[2] += uI.X
+		A[3] += uI.Y * uI.Y
+		A[4] += uI.Y
+		A[5] += 1
+
+		B[0] += vI.X * uI.X
+		B[1] += vI.X * uI.Y
+		B[2] += vI.X
+		B[3] += vI.Y * uI.X
+		B[4] += vI.Y * uI.Y
+		B[5] += vI.Y
+	}
+
+	C := make(Matrix, 3)
+	C[0] = []float64{A[0], A[1], A[2]}
+	C[1] = []float64{A[1], A[3], A[4]}
+	C[2] = []float64{A[2], A[4], A[5]}
+	D := make(Matrix, 3)
+	D[0] = []float64{B[0], B[3]}
+	D[1] = []float64{B[1], B[4]}
+	D[2] = []float64{B[2], B[5]}
+
+	inv, err2 := C.Inv()
+	if err2 != nil {
+		err = err2
+		return
+	}
+
+	E := inv.XM(D)
+	aff = Affine{
+		Axx: E[0][0],
+		Axy: E[1][0],
+		Ayx: E[0][1],
+		Ayy: E[1][1],
+		Dx:  E[2][0],
+		Dy:  E[2][1],
+	}
+	return
+}
+
+// Apply applies an affine transformation to a coordinate to obtain
+// transformed coordinates. Use DeriveAffine() to generate one from
+// a set of point pairs.
+func (aff Affine) Apply(x, y float64) (rX, rY float64) {
+	rX = aff.Axx*x + aff.Axy*y + aff.Dx
+	rY = aff.Ayx*x + aff.Ayy*y + aff.Dy
+	return
+}
+
+// Inv computes the inverse of a given affine transformation.
+func (aff Affine) Inv() (revaff Affine, err error) {
+	m := Matrix{
+		{aff.Axx, aff.Axy},
+		{aff.Ayx, aff.Ayy},
+	}
+	inv, err2 := m.Inv()
+	if err2 != nil {
+		err = err2
+		return
+	}
+	revaff = Affine{
+		Axx: inv[0][0],
+		Axy: inv[0][1],
+		Ayx: inv[1][0],
+		Ayy: inv[1][1],
+		Dx:  -inv[0][0]*aff.Dx - inv[0][1]*aff.Dy,
+		Dy:  -inv[1][0]*aff.Dx - inv[1][1]*aff.Dy,
+	}
+	return
+}

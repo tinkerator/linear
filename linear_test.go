@@ -57,6 +57,10 @@ func TestInv(t *testing.T) {
 	if !inv.Same(recip) {
 		t.Errorf("bad inverse =\n%v", inv)
 	}
+	ans := inv.XM(a)
+	if math.Abs(ans[0][0]-1) > Zeroish || math.Abs(ans[1][1]-1) > Zeroish || math.Abs(ans[0][1]) > Zeroish || math.Abs(ans[1][0]) > Zeroish {
+		t.Errorf("ans=%v is not identity", ans)
+	}
 }
 
 func TestBinomial(t *testing.T) {
@@ -129,6 +133,46 @@ func TestFitPoly(t *testing.T) {
 		y := fit.Expand(coord.X)
 		if math.Abs(y-coord.Y) > 0.01 {
 			t.Errorf("%d: got=%g want=%g", i, y, coord.Y)
+		}
+	}
+}
+
+func TestAffine(t *testing.T) {
+	triangle := []Point{
+		{0, 0},
+		{3, 0},
+		{5, 7},
+	}
+	for i := 0; i < 10; i++ {
+		ang := float64(i*15) / 180 * math.Pi
+		c, s := math.Cos(ang), math.Sin(ang)
+		var v []Point
+		sx, sy := 1+ang/math.Pi, 2-ang/math.Pi
+		for _, pt := range triangle {
+			v = append(v, Point{
+				X: c*pt.X*sx - s*pt.Y*sy + ang,
+				Y: s*pt.X*sx + c*pt.Y*sy - ang/2,
+			})
+		}
+		aff, err := DeriveAffine(triangle, v)
+		if err != nil {
+			t.Errorf("[%d] failed to generate Affine for %v -> %v: %v", i, triangle, v, err)
+			continue
+		}
+		inv, err := aff.Inv()
+		if err != nil {
+			t.Fatalf("inverse of affine not defined: aff=%#f: %v", aff, err)
+		}
+		for j, pt := range triangle {
+			x, y := aff.Apply(pt.X, pt.Y)
+			if math.Abs(x-v[j].X) > Zeroish || math.Abs(y-v[j].Y) > Zeroish {
+				t.Errorf("[%d,%d] got=%f want=%f", i, j, Point{x, y}, v[j])
+				t.Fatalf("aff=%f", aff)
+			}
+			rX, rY := inv.Apply(x, y)
+			if math.Abs(pt.X-rX) > Zeroish || math.Abs(pt.Y-rY) > Zeroish {
+				t.Fatalf("inverse of aff=%f inv=%v failed: %f != (%f,%f)", aff, inv, pt, rX, rY)
+			}
 		}
 	}
 }
