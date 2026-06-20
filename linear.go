@@ -78,6 +78,22 @@ func (m Matrix) SubRows(row1, row2 int, norm, alpha float64) {
 	}
 }
 
+// ScaleRows replaces a specific matrix row with a scaled version of
+// itself.
+func (m Matrix) ScaleRow(row int, alpha float64) {
+	for i, a := range m[row] {
+		m[row][i] = a * alpha
+	}
+}
+
+// SwapRows swaps two matrix rows, and multiplies both by alpha.
+func (m Matrix) SwapRows(row1, row2 int, alpha float64) {
+	r1, r2 := m[row1], m[row2]
+	for i := range r1 {
+		r1[i], r2[i] = r2[i]*alpha, r1[i]*alpha
+	}
+}
+
 // CombineRows changes the rows of a matrix by summing the rows with
 // coefficients alpha and beta to replace row1 and replaces row2 with
 // the difference of the same row combinations. It modifies the matrix
@@ -136,35 +152,32 @@ func (m Matrix) Inv() (Matrix, error) {
 	for c := 0; c < len(a); c++ {
 		for r := c + 1; r < len(a); r++ {
 			x, y := a[c][c], a[r][c]
-			if math.Abs(x+y) <= Zeroish {
-				if x > y {
-					a.CombineRows(c, r, 1, -1)
-					b.CombineRows(c, r, 1, -1)
-				} else {
-					a.CombineRows(c, r, -1, 1)
-					b.CombineRows(c, r, -1, 1)
-				}
-			} else if math.Abs(x) <= Zeroish {
-				a.SubRows(r, c, 1, 1)
-				b.SubRows(r, c, 1, 1)
-				a.SubRows(c, r, 1, -1)
-				b.SubRows(c, r, 1, -1)
-			} else {
-				a.CombineRows(c, r, y/(x+y), x/(x+y))
-				b.CombineRows(c, r, y/(x+y), x/(x+y))
+			if math.Abs(y) > math.Abs(x)+Zeroish {
+				alpha := 1 / y
+				a.SwapRows(c, r, alpha)
+				b.SwapRows(c, r, alpha)
 			}
 		}
-	}
-	for c := len(a); c > 0; {
-		c--
-		for r := c; r > 0; {
-			r--
-			x, y := a[c][c], a[r][c]
-			a.SubRows(c, r, 1/x, y/x)
-			b.SubRows(c, r, 1/x, y/x)
+		if math.Abs(a[c][c]) <= Zeroish {
+			return nil, ErrNoInverse
+		}
+		alpha := 1 / a[c][c]
+		a.ScaleRow(c, alpha)
+		b.ScaleRow(c, alpha)
+		for r := c + 1; r < len(a); r++ {
+			y := a[r][c]
+			a.SubRows(c, r, 1, y)
+			b.SubRows(c, r, 1, y)
 		}
 	}
-	b.SubRows(0, 1, 1/a[0][0], 0)
+	// remove the top right triangle.
+	for c := 1; c < len(a); c++ {
+		for r := c - 1; r >= 0; r-- {
+			x, y := a[c][c], a[r][c]
+			a.SubRows(c, r, 1, y/x)
+			b.SubRows(c, r, 1, y/x)
+		}
+	}
 	b.Dissolve()
 	return b, nil
 }

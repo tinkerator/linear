@@ -176,3 +176,64 @@ func TestAffine(t *testing.T) {
 		}
 	}
 }
+
+func TestAffineXY(t *testing.T) {
+	from := []Point{
+		{-20.030589133069473, 0},
+		{19.869795306245308, 0},
+		{-20.4307123085543, 0},
+		{19.619621722740685, 0},
+		{-40.08048457364408, 0},
+		{39.845042396654286, 0},
+		{-40.38062805822299, 0},
+		{39.64493670018861, 0},
+		{0, 70.26702376778884},
+		{0, 70.04202542947003},
+		{0, -69.65861552647617},
+		{0, -69.8835729634595},
+		{0, 50.39198506924882},
+		{0, 49.991571110506946},
+		{0, -49.558665013911316},
+		{0, -49.88442824953612},
+	}
+	to := []Point{
+		{-19.8, -0.15},
+		{20.1, -0.325},
+		{-20.2, -0.125},
+		{19.85, -0.25},
+		{-39.85, -0.15},
+		{40.075, -0.425},
+		{-40.15, -0.1},
+		{39.875, -0.4},
+		{0.5, 70.025},
+		{0.5, 69.8},
+		{0.1, -69.9},
+		{0.125, -70.125},
+		{0.45, 50.15},
+		{0.15, 49.75},
+		{0.1, -49.8},
+		{-0.075, -50.125},
+	}
+	aff, err := DeriveAffine(from, to)
+	if err != nil {
+		t.Fatalf("unable to derive affine: %v", err)
+	}
+	if wantAxx := 0.9999927663957388; math.Abs(wantAxx-aff.Axx) > Zeroish {
+		t.Errorf("unexpected Axx: got=%f want=%f", aff.Axx, wantAxx)
+	}
+	if wantAxy := 0.0028083051938289495; math.Abs(wantAxy-aff.Axy) > Zeroish {
+		t.Errorf("unexpected Axy: got=%f want=%f", aff.Axy, wantAxy)
+	}
+	if wantAyx := -0.0036293030188853086; math.Abs(wantAyx-aff.Ayx) > Zeroish {
+		t.Errorf("unexpected Ayx: got=%f want=%f", aff.Ayx, wantAyx)
+	}
+	if wantAyy := 0.9999942766937774; math.Abs(wantAyy-aff.Ayy) > Zeroish {
+		t.Errorf("unexpected Ayy: got=%f want=%f", aff.Ayy, wantAyy)
+	}
+	if wantDx := 0.23051307542745367; math.Abs(wantDx-aff.Dx) > Zeroish {
+		t.Errorf("unexpected Dx got=%f want=%f", aff.Dx, wantDx)
+	}
+	if wantDy := -0.24152285331242462; math.Abs(wantDy-aff.Dy) > Zeroish {
+		t.Errorf("unexpected Dy got=%f want=%f", aff.Dy, wantDy)
+	}
+}
